@@ -11,6 +11,7 @@
             min-width: 350px;
             overflow: hidden;
             flex-direction: column;
+            border-right: 1px solid #ddd;
 
 
             .title-bar {
@@ -18,7 +19,6 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                border-right: 1px solid #ddd;
                 border-bottom: 1px solid #ddd;
 
                 .user-profile {

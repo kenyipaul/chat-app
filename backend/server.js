@@ -129,12 +129,18 @@ const io = socket(server, {
 global.onlineUsers = new Map();
 
 io.on('connection', (socket) => {
-    
+
     socket.on('add-user', user_id => {
+        console.log('User: ' + user_id + ' Connected')
         onlineUsers.set(user_id, socket.id)
     })
 
     socket.on('send-msg', data => {
-        console.log('data')
+        let receiver = onlineUsers.get(data.to)
+        socket.to(receiver).emit('msg-received', {from: data.from, msg: data.msg})
+    })
+
+    socket.on('disconnect', (socket) => {
+        console.log('disconnected')
     })
 })

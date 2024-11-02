@@ -10,6 +10,12 @@ export default function Chat() {
     const [messages, setMessages] = useState([])
     const [user, setUser] = useContext(UserContext)
     const [activeUser, setActiveUser] = useState({})
+    const [arrivalMessage, setArrivalMessage] = useState(null)
+
+    useEffect(() => {
+        if (Object.keys(activeUser).length > 0)
+            socket.current = io("http://localhost:3303")
+    }, [activeUser])
 
     useEffect(() => {
         Axios.post("http://localhost:3303/users", {
@@ -17,15 +23,23 @@ export default function Chat() {
         }).then((response) => {
             setUsers(response.data.data)
         })
-    }, [user])
+    }, [])
 
     useEffect(() => {
-        Axios.post("http://localhost:3303/getMsgs", {
-            sender: user.id,
-            receiver: activeUser.id
-        }).then((response) => {
-            setMessages(response.data)
-        })
+        if (Object.keys(activeUser).length > 0) {
+            socket.current.emit('add-user', user.id)
+        }
+    }, [activeUser])
+    
+    useEffect(() => {
+        if (Object.keys(activeUser).length > 0) {
+            Axios.post("http://localhost:3303/getMsgs", {
+                sender: user.id,
+                receiver: activeUser.id
+            }).then((response) => {
+                setMessages(response.data)
+            })
+        }   
     }, [activeUser])
     
     const sendMsg = () => {
@@ -39,13 +53,29 @@ export default function Chat() {
             console.log(response.data)
         })
 
-        socket.current.emit('send-msg', {to: activeUser.id, msg: msg})
+        let msgBlock = document.createElement('div')
+                msgBlock.className = "message-container sent-message"
+                msgBlock.innerHTML = `<p class="message">${msg.value}</p>`;
+
+                document.querySelector('.chat-container').appendChild(msgBlock);
+
+        if (socket.current) {
+            socket.current.emit('send-msg', {to: activeUser.id, from: user.id, msg: msg.value})
+        }
     }
 
+
     useEffect(() => {
-        socket.current = io("http://localhost:3303");
-        socket.current.emit('add-user', user.id)
-    }, [activeUser])
+        if (socket.current) {
+            socket.current.on('msg-received', msg => {
+                setArrivalMessage({ from: msg.from, msg: msg.msg})
+            })   
+        }
+    })
+
+    useEffect(() => {
+        arrivalMessage && setMessages((prev) => [...prev, arrivalMessage])
+      }, [arrivalMessage])
 
     return (
         <div id="chat-view">
@@ -68,40 +98,41 @@ export default function Chat() {
                     }
                 </div>
             </section>
-
             <section>
-                <div className="title-bar">
-                    <div className="user-profile">
-                        <div className="cover">
-                            {/* <div className="dot"></div> */}
+                {
+                    Object.keys(activeUser).length > 0 ?
+                    <>
+                        <div className="title-bar">
+                            <div className="user-profile">
+                                <div className="cover">
+                                </div>
+                                <div className="info">
+                                    <h1>{activeUser.name}</h1>
+                                </div>
+                            </div>
                         </div>
-                        <div className="info">
-                            <h1>{activeUser.name}</h1>
-                            {/* <p>Last seen Today at 9:02 am</p> */}
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="chat-container sent-message">
-                    {/* <SentMessage /> */}
-                    {
-                        messages.map((data, key) => {
-                            if (data.from == activeUser.id) {
-                                return <ReceivedMessage data={data} key={key} />
-                            } else {
-                                return <SentMessage data={data} key={key} />
+                        
+                        <div className="chat-container">
+                            {
+                                messages.map((data, key) => {
+                                    if (data.from == activeUser.id) {
+                                        return <ReceivedMessage data={data} key={key} />
+                                    } else {
+                                        return <SentMessage data={data} key={key} />
+                                    }
+                                })
                             }
-                            // console.log("From: " + data.from)
-                            // console.log("Active User: " + activeUser.id)
-                            // data.from == activeUser.id ? <SentMessage data={data} key={key} /> : <ReceivedMessage data={data} key={key} />
-                        })
-                    }
-                </div>
+                        </div>
 
-                <div className="bottom-bar">
-                    <input type="text" name="msg-input" id="msg-input" placeholder="Type message here...." />
-                    <button onClick={sendMsg}>Send</button>
-                </div>
+                        <div className="bottom-bar">
+                            <input type="text" name="msg-input" id="msg-input" placeholder="Type message here...." />
+                            <button onClick={sendMsg}>Send</button>
+                        </div>
+                    </>
+                    :
+                    <></>
+                }
+                
             </section>
         </div>
     )
